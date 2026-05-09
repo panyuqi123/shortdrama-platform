@@ -8,11 +8,23 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'home' | 'me'>('home')
   const { user } = useAuth()
 
+  // 分类筛选
+  const [activeCategory, setActiveCategory] = useState('全部')
+  const filteredDramas = activeCategory === '全部'
+    ? mockDramas
+    : mockDramas.filter(d => d.category === activeCategory)
+
   // 抖音式全屏浏览状态
   const [currentIdx, setCurrentIdx] = useState(0)
   const startY = useRef(0)
   const startX = useRef(0)
   const isDragging = useRef(false)
+
+  // 分类切换时重置索引
+  const handleCategoryChange = (cat: string) => {
+    setActiveCategory(cat)
+    setCurrentIdx(0)
+  }
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY
@@ -30,17 +42,29 @@ export default function HomePage() {
 
     // 上下滑动 > 左右滑动才切换
     if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 50) {
-      if (diffY > 0 && currentIdx < mockDramas.length - 1) {
-        // 上滑 → 下一个
+      if (diffY > 0 && currentIdx < filteredDramas.length - 1) {
         setCurrentIdx(prev => prev + 1)
       } else if (diffY < 0 && currentIdx > 0) {
-        // 下滑 → 上一个
         setCurrentIdx(prev => prev - 1)
       }
     }
   }
 
-  const currentDrama = mockDramas[currentIdx]
+  // 播放进度记忆
+  const [progress, setProgress] = useState<Record<string, number>>({})
+  useEffect(() => {
+    const saved = localStorage.getItem('shortdrama_progress')
+    if (saved) setProgress(JSON.parse(saved))
+  }, [])
+  const saveProgress = (dramaId: string, idx: number) => {
+    const updated = { ...progress, [dramaId]: idx }
+    setProgress(updated)
+    localStorage.setItem('shortdrama_progress', JSON.stringify(updated))
+  }
+  // 如果有记忆的进度，恢复到该集
+  const savedIdx = progress[filteredDramas[currentIdx]?.id] ?? 0
+
+  const currentDrama = filteredDramas[currentIdx]
 
   if (activeTab === 'me') {
     return (
@@ -131,7 +155,7 @@ export default function HomePage() {
           </div>
 
           {/* 右下角播放按钮 */}
-          <Link href={`/drama/${currentDrama.id}`} className="absolute bottom-32 right-3">
+          <Link href={`/drama/${currentDrama.id}?ep=${savedIdx}`} className="absolute bottom-32 right-3">
             <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
               <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z"/>
@@ -141,13 +165,13 @@ export default function HomePage() {
 
           {/* 进度指示点 */}
           <div className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1.5">
-            {mockDramas.map((_, i) => (
+            {filteredDramas.map((_, i) => (
               <div key={i} className={`w-1.5 rounded-full transition-all ${i === currentIdx ? 'h-5 bg-white' : 'h-1.5 bg-white/40'}`} />
             ))}
           </div>
 
           {/* 上滑提示 */}
-          {currentIdx < mockDramas.length - 1 && (
+          {currentIdx < filteredDramas.length - 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 animate-bounce opacity-60">
               <span className="text-white text-xs">上滑</span>
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,14 +182,12 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 顶部毛玻璃状态栏 */}
-      <div className="absolute top-0 left-0 right-0 pt-8 pb-3 px-4 bg-gradient-to-b from-black/70 to-transparent z-20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-white font-black text-lg">
-              Reel<span className="text-red-500">Short</span>
-            </span>
-          </div>
+      {/* 顶部毛玻璃状态栏 + 分类 */}
+      <div className="absolute top-0 left-0 right-0 pt-8 pb-3 px-4 bg-gradient-to-b from-black/80 to-transparent z-20">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-white font-black text-lg">
+            Reel<span className="text-red-500">Short</span>
+          </span>
           <div className="flex items-center gap-3">
             <div className="bg-white/20 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-full">
               🔍 搜索
@@ -187,16 +209,34 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 当前进度 */}
+        {/* 分类标签栏 */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => handleCategoryChange(cat)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                activeCategory === cat
+                  ? 'bg-red-500 text-white'
+                  : 'bg-white/10 text-white/60'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* 进度条 */}
         <div className="mt-3">
           <div className="h-0.5 bg-white/20 rounded-full">
             <div
               className="h-full bg-red-500 rounded-full transition-all"
-              style={{ width: `${((currentIdx + 1) / mockDramas.length) * 100}%` }}
+              style={{ width: filteredDramas.length > 0 ? `${((currentIdx + 1) / filteredDramas.length) * 100}%` : '0%' }}
             />
           </div>
           <div className="flex justify-between mt-1">
-            <span className="text-white/40 text-xs">{currentIdx + 1}/{mockDramas.length}</span>
+            <span className="text-white/40 text-xs">{currentIdx + 1}/{filteredDramas.length}</span>
+            <span className="text-white/40 text-xs">{currentDrama?.title}</span>
           </div>
         </div>
       </div>
@@ -226,7 +266,6 @@ function MeTab({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-screen bg-neutral-950 pt-12 pb-8">
-      {/* 返回按钮 */}
       <button onClick={onBack} className="flex items-center gap-2 text-white/60 text-sm px-4 mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
@@ -234,7 +273,6 @@ function MeTab({ onBack }: { onBack: () => void }) {
         返回
       </button>
 
-      {/* 用户信息 */}
       <div className="bg-neutral-900 rounded-2xl p-5 mx-4 mb-4">
         <div className="flex items-center gap-4">
           <img src={user.avatar} className="w-14 h-14 rounded-full border-2 border-red-500/50" />
@@ -267,7 +305,6 @@ function MeTab({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {/* 菜单 */}
       <div className="bg-neutral-900 rounded-2xl mx-4 overflow-hidden">
         {[
           {icon:'👑', label:'VIP 中心', sub: user.isVip ? '有效期至 2026-12-31' : '开通享特权'},
