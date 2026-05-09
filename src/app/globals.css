@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #FF2D55;
+  --primary-dark: #E62248;
+  --bg-dark: #0A0A0A;
+  --bg-card: #1A1A1A;
+  --bg-card-hover: #222222;
+  --text-primary: #FFFFFF;
+  --text-secondary: #999999;
+  --text-tertiary: #666666;
+  --border: #2A2A2A;
+  --gold: #FFD700;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  padding-bottom: var(--safe-bottom);
+}
+
+/* 隐藏滚动条 */
+::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 去除 iOS input 样式 */
+input, textarea {
+  -webkit-appearance: none;
+  outline: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+}
+
+/* 按钮样式重置 */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+
+/* 安全区底部留白 */
+.tab-bar {
+  padding-bottom: calc(8px + var(--safe-bottom));
+}
