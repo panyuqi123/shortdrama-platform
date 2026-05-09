@@ -42,8 +42,8 @@ export default function HomePage() {
       {activeTab === 'home' && (
         <main>
           {mockDramas.map(drama => (
-            <Link href={`/drama/${drama.id}`} key={drama.id} className="block">
-              <div className="relative w-full aspect-[9/16] max-h-[85vh] mx-auto overflow-hidden bg-neutral-900">
+            <Link href={`/drama/${drama.id}`} key={drama.id} className="block px-3 mt-3">
+              <div className="relative w-full aspect-[9/16] max-h-[85vh] mx-auto overflow-hidden bg-neutral-900 rounded-2xl shadow-lg">
                 <img
                   src={drama.cover}
                   alt={drama.title}
@@ -68,7 +68,7 @@ export default function HomePage() {
                   <h2 className="text-white text-base font-bold leading-tight mb-1">{drama.title}</h2>
                   <p className="text-white/60 text-xs line-clamp-1">{drama.description}</p>
                   <div className="flex items-center gap-3 mt-2 text-white/50 text-xs">
-                    <span>👁 {formatViewCount(drama.viewCount)}</span>
+                    <span className="ml-0.5">▶ {formatViewCount(drama.viewCount)}</span>
                     <span>★ {drama.rating}</span>
                     <span>{drama.episodes.length} 集</span>
                   </div>
