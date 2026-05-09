@@ -1,23 +1,69 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { mockDramas, formatViewCount } from '../../../lib/mockData'
 import { useAuth } from '../../../lib/auth'
 
 export default function DramaPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const drama = mockDramas.find(d => d.id === params.id)
-  const [selectedIdx, setSelectedIdx] = useState(0)
+
+  // 读取 URL 中的 ep 参数（从首页跳转来）
+  const [selectedIdx, setSelectedIdx] = useState(() => {
+    const epParam = searchParams.get('ep')
+    return epParam ? Math.min(parseInt(epParam), (drama?.episodes.length ?? 1) - 1) : 0
+  })
+
   const [showPaywall, setShowPaywall] = useState(false)
   const [currentUnlock, setCurrentUnlock] = useState<number | null>(null)
   const [showDesc, setShowDesc] = useState(false)
+  const [playProgress, setPlayProgress] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
   const { user, unlockEpisode, buyVip, setShowAuthModal } = useAuth()
 
+  // 滑动手势（切集）
+  const startY = useRef(0)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = startY.current - e.changedTouches[0].clientY
+    if (Math.abs(diff) > 60) {
+      if (diff > 0 && selectedIdx < (drama?.episodes.length ?? 1) - 1) {
+        // 上滑 → 下一集
+        handleSelect(selectedIdx + 1)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else if (diff < 0 && selectedIdx > 0) {
+        // 下滑 → 上一集
+        handleSelect(selectedIdx - 1)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    }
+  }
+
+  // 保存播放进度
   useEffect(() => {
-    if (drama) setSelectedIdx(0)
-  }, [drama?.id])
+    if (drama && drama.episodes[selectedIdx]) {
+      const id = `${drama.id}-${selectedIdx}`
+      const saved = localStorage.getItem(`progress_${id}`)
+      if (saved && videoRef.current) {
+        videoRef.current.currentTime = parseFloat(saved)
+      }
+    }
+  }, [drama?.id, selectedIdx])
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && drama) {
+      const id = `${drama.id}-${selectedIdx}`
+      const pct = (videoRef.current.currentTime / videoRef.current.duration) * 100
+      setPlayProgress(pct)
+      if (pct > 5) {
+        localStorage.setItem(`progress_${id}`, String(videoRef.current.currentTime))
+      }
+    }
+  }
 
   if (!drama) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
@@ -34,6 +80,7 @@ export default function DramaPage() {
       setShowPaywall(true)
     } else {
       setSelectedIdx(i)
+      setPlayProgress(0)
       setTimeout(() => videoRef.current?.play(), 100)
     }
   }
@@ -57,13 +104,15 @@ export default function DramaPage() {
   }
 
   const handleNext = () => {
-    if (selectedIdx < drama.episodes.length - 1) {
-      handleSelect(selectedIdx + 1)
-    }
+    if (selectedIdx < drama.episodes.length - 1) handleSelect(selectedIdx + 1)
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div
+      className="min-h-screen bg-black"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* 返回 + 标题 */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/90 to-transparent px-4 pt-4 pb-3">
         <div className="flex items-center gap-2">
@@ -79,6 +128,12 @@ export default function DramaPage() {
             </svg>
           </button>
         </div>
+        {/* 进度条 */}
+        <div className="mt-2">
+          <div className="h-0.5 bg-white/20 rounded-full">
+            <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${playProgress}%` }} />
+          </div>
+        </div>
       </div>
 
       {/* 视频播放器 */}
@@ -91,16 +146,16 @@ export default function DramaPage() {
             className="w-full h-full object-contain"
             controls
             playsInline
+            onTimeUpdate={handleTimeUpdate}
             onEnded={handleNext}
           />
           {/* 集数指示 */}
-          <div className="absolute bottom-20 right-4 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
+          <div className="absolute bottom-16 right-4 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
             {selectedIdx + 1}/{drama.episodes.length}
           </div>
-          {/* 自动连播提示 */}
           {selectedIdx < drama.episodes.length - 1 && (
-            <div className="absolute bottom-20 left-4 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
-              下一集自动播放
+            <div className="absolute bottom-16 left-4 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full backdrop-blur-sm opacity-60">
+              ↑ 上滑切下集
             </div>
           )}
         </div>
@@ -108,7 +163,6 @@ export default function DramaPage() {
 
       {/* 剧集信息 */}
       <div className="px-4 py-4">
-        {/* 标题区 */}
         <div className="flex items-start gap-3 mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -123,10 +177,7 @@ export default function DramaPage() {
               <span>{drama.updatedAt} 更新</span>
             </div>
           </div>
-          <button
-            onClick={() => setShowDesc(!showDesc)}
-            className="text-red-500 text-xs font-medium flex items-center gap-1"
-          >
+          <button onClick={() => setShowDesc(!showDesc)} className="text-red-500 text-xs font-medium flex items-center gap-1">
             {showDesc ? '收起' : '详情'}
             <svg className={`w-3 h-3 transition-transform ${showDesc ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
@@ -134,7 +185,6 @@ export default function DramaPage() {
           </button>
         </div>
 
-        {/* 简介展开 */}
         {showDesc && (
           <div className="bg-neutral-900 rounded-xl p-4 mb-4">
             <p className="text-neutral-400 text-sm leading-relaxed">{drama.description}</p>
@@ -146,7 +196,6 @@ export default function DramaPage() {
           </div>
         )}
 
-        {/* 标签行 */}
         {!showDesc && (
           <div className="flex flex-wrap gap-1.5 mb-4">
             {drama.tags.map(tag => (
@@ -155,10 +204,9 @@ export default function DramaPage() {
           </div>
         )}
 
-        {/* 选集标题 */}
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-white font-bold text-sm">选集</h3>
-          <span className="text-neutral-500 text-xs">共 {drama.episodes.length} 集</span>
+          <span className="text-neutral-500 text-xs">共 {drama.episodes.length} 集 · 上下滑动切换</span>
         </div>
 
         {/* 选集网格 */}
@@ -185,6 +233,15 @@ export default function DramaPage() {
                 <div className="absolute bottom-0 left-0 right-0 p-0.5">
                   <span className="text-white text-xs font-medium">{episode.number}集</span>
                 </div>
+                {/* 播放进度指示 */}
+                {(() => {
+                  const saved = typeof window !== 'undefined' ? localStorage.getItem(`progress_${drama.id}-${i}`) : null
+                  if (saved && !isCurrent && unlocked) {
+                    const dur = drama.episodes[i] ? 1 : 0
+                    return <div className="absolute bottom-0 left-0 h-0.5 bg-red-500" style={{width: '60%'}} />
+                  }
+                  return null
+                })()}
               </button>
             )
           })}
