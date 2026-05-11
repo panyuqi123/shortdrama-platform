@@ -20,9 +20,8 @@
   --text-tertiary: #666666;
   --border: #2A2A2A;
   --gold: #FFD700;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  /* Glass morphism */
+  /* Glass */
   --glass-bg: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.12);
 
@@ -45,22 +44,41 @@
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-size-adjust: 100%;
+}
+
+html {
+  /* 防止 iOS Safari 自动调整字号 */
+  -webkit-text-size-adjust: 100%;
+  /* 启用平滑滚动 */
+  scroll-behavior: smooth;
 }
 
 html, body {
   background: var(--bg-dark);
   color: var(--text-primary);
   font-family: var(--font-family-sans);
+  /* 
+   * 关键修复：100dvh = 动态 viewport height
+   * 正确处理移动端浏览器地址栏/导航栏的动态显示/隐藏
+   * 替代旧的 height:100% 和 h-screen
+   */
   height: 100%;
+  min-height: 100dvh;
   overscroll-behavior: none;
+  overflow-x: hidden;
 }
 
 body {
-  padding-bottom: var(--safe-bottom);
+  /* iPhone 安全区 */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { display: none; }
+/* Scrollbar - 隐藏所有滚动条 */
+::-webkit-scrollbar { display: none; width: 0; height: 0; }
 * { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Input */
@@ -80,14 +98,20 @@ button {
   cursor: pointer;
   font-family: inherit;
   color: inherit;
+  touch-action: manipulation; /* 优化移动端触摸响应 */
 }
 
-/* Safe area bottom */
+/* 移动端触摸反馈 */
+button:active {
+  opacity: 0.7;
+}
+
+/* Safe area bottom (兼容旧设备) */
 .tab-bar {
-  padding-bottom: calc(8px + var(--safe-bottom));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 
-/* Glass morphism utility */
+/* Glass morphism */
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
@@ -117,7 +141,7 @@ button {
   background-clip: text;
 }
 
-/* Shimmer loading */
+/* Animations */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -129,7 +153,6 @@ button {
   animation: shimmer 1.5s infinite;
 }
 
-/* Pulse ring for VIP */
 @keyframes pulse-ring {
   0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
   70% { box-shadow: 0 0 0 8px rgba(255, 215, 0, 0); }
@@ -140,7 +163,6 @@ button {
   animation: pulse-ring 2s ease-out infinite;
 }
 
-/* Float animation */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-6px); }
@@ -148,4 +170,76 @@ button {
 
 .float {
   animation: float 3s ease-in-out infinite;
+}
+
+/* ====== 移动端专项优化 ====== */
+
+/* 防止水平溢出 */
+.overflow-safe {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 固定底部安全区（刘海屏手机） */
+.safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* 视频播放器 - 确保不被刘海遮挡 */
+.video-container {
+  /* iOS Safari 地址栏 + 刘海屏 */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* 确保 fixed 定位在 iOS 上正确工作 */
+.fixed-full {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* iOS fixed 定位滚动穿透 */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 底部弹窗 - iOS 虚拟键盘适配 */
+.bottom-sheet {
+  max-height: 92dvh;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 移动端禁用长按菜单 */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 图片优化 - 移动端加速 */
+img {
+  /* 让图片在网速慢时也能有合理渲染 */
+  decoding: async;
+  /* 防止图片超出容器 */
+  max-width: 100%;
+  height: auto;
+}
+
+/* 移动端输入框聚焦时不缩放（配合 viewport） */
+input[type="text"],
+input[type="tel"],
+input[type="number"],
+textarea {
+  font-size: 16px; /* iOS Safari 输入时不自动缩放 */
+}
+
+/* video 元素 */
+video {
+  /* 允许全屏播放 */
+  playsinline: '';
+  webkit-playsinline: '';
+  /* iOS 禁用默认控件样式 */
+  -webkit-appearance: none;
 }
